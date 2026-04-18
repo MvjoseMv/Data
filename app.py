@@ -1,13 +1,30 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-
-st.set_page_config(page_title="Dashboard Interactivo", layout="wide")
-
-st.title("📊 Dashboard Interactivo de Asistencia")
+import plotly.express as px
 
 # -----------------------
-# CARGA
+# CONFIG
+# -----------------------
+st.set_page_config(page_title="Dashboard Ejecutivo", layout="wide")
+
+# -----------------------
+# ESTILO
+# -----------------------
+st.markdown("""
+<style>
+.main {
+    background-color: #0e1117;
+}
+h1, h2, h3 {
+    color: #ffffff;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("📊 Dashboard Ejecutivo de Asistencia")
+
+# -----------------------
+# DATA
 # -----------------------
 @st.cache_data
 def cargar():
@@ -31,139 +48,126 @@ def segmentar(score):
 df['segmento'] = df['score'].apply(segmentar)
 
 # -----------------------
-# SIDEBAR FILTROS
+# SIDEBAR
 # -----------------------
-st.sidebar.header("🎛️ Filtros Interactivos")
+st.sidebar.title("🎛️ Filtros")
 
 periodos = st.sidebar.multiselect(
     "Periodo",
-    sorted(df['id_periodo'].unique()),
-    default=sorted(df['id_periodo'].unique())
+    df['id_periodo'].unique(),
+    default=df['id_periodo'].unique()
 )
 
 estudiantes = st.sidebar.multiselect(
     "Estudiantes",
-    sorted(df['id_estudiante'].unique()),
-    default=[]
-)
-
-rango_tardanzas = st.sidebar.slider(
-    "Rango tardanzas",
-    int(df['tardanzas'].min()),
-    int(df['tardanzas'].max()),
-    (0, int(df['tardanzas'].max()))
+    df['id_estudiante'].unique()
 )
 
 # -----------------------
-# FILTRADO DINÁMICO
+# FILTRO
 # -----------------------
-df_filtrado = df[df['id_periodo'].isin(periodos)]
+df_f = df[df['id_periodo'].isin(periodos)]
 
 if estudiantes:
-    df_filtrado = df_filtrado[df_filtrado['id_estudiante'].isin(estudiantes)]
-
-df_filtrado = df_filtrado[
-    df_filtrado['tardanzas'].between(rango_tardanzas[0], rango_tardanzas[1])
-]
+    df_f = df_f[df_f['id_estudiante'].isin(estudiantes)]
 
 # -----------------------
-# KPIs DINÁMICOS
+# KPIs
 # -----------------------
-st.subheader("📌 Indicadores en Tiempo Real")
+st.subheader("📌 Indicadores")
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Tardanzas Promedio", round(df_filtrado['tardanzas'].mean(),2))
-col2.metric("Retiros Promedio", round(df_filtrado['retiros_tempranos'].mean(),2))
-col3.metric("Score Promedio", round(df_filtrado['score'].mean(),2))
-col4.metric("Casos Críticos", len(df_filtrado[df_filtrado['segmento']=="Crítico"]))
-
-st.divider()
+col1.metric("Tardanzas Promedio", round(df_f['tardanzas'].mean(),2))
+col2.metric("Retiros Promedio", round(df_f['retiros_tempranos'].mean(),2))
+col3.metric("Score Promedio", round(df_f['score'].mean(),2))
+col4.metric("Casos Críticos", len(df_f[df_f['segmento']=="Crítico"]))
 
 # -----------------------
-# GRÁFICOS DINÁMICOS
+# GRÁFICOS INTERACTIVOS
 # -----------------------
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Distribución de Tardanzas")
-    fig, ax = plt.subplots()
-    df_filtrado['tardanzas'].hist(ax=ax)
-    st.pyplot(fig)
+    fig = px.histogram(df_f, x="tardanzas", title="Distribución de Tardanzas")
+    st.plotly_chart(fig, use_container_width=True)
 
 with col2:
-    st.subheader("Distribución de Score")
-    fig, ax = plt.subplots()
-    df_filtrado['score'].hist(ax=ax)
-    st.pyplot(fig)
+    fig = px.histogram(df_f, x="score", title="Distribución del Score")
+    st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
-# RELACIÓN INTERACTIVA
+# SCATTER INTERACTIVO
 # -----------------------
 st.subheader("🔗 Relación entre variables")
 
-fig, ax = plt.subplots()
-ax.scatter(df_filtrado['tardanzas'], df_filtrado['retiros_tempranos'])
-ax.set_xlabel("Tardanzas")
-ax.set_ylabel("Retiros")
-st.pyplot(fig)
+fig = px.scatter(
+    df_f,
+    x="tardanzas",
+    y="retiros_tempranos",
+    color="segmento",
+    hover_data=["id_estudiante"],
+    title="Tardanzas vs Retiros"
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
 # SEGMENTACIÓN
 # -----------------------
-st.subheader("📊 Segmentación dinámica")
-st.bar_chart(df_filtrado['segmento'].value_counts())
+st.subheader("📊 Segmentación")
+
+fig = px.bar(
+    df_f['segmento'].value_counts().reset_index(),
+    x="index",
+    y="segmento",
+    title="Distribución de Segmentos"
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
-# COMPARACIÓN POR PERIODO
+# TENDENCIA
 # -----------------------
-st.subheader("📈 Comparación por Periodo")
+st.subheader("📈 Tendencia")
 
-comparacion = df_filtrado.groupby('id_periodo')[['tardanzas','score']].mean()
-st.line_chart(comparacion)
+tendencia = df.groupby('id_periodo')['score'].mean().reset_index()
 
-# -----------------------
-# PARETO INTERACTIVO
-# -----------------------
-st.subheader("📊 Pareto dinámico")
+fig = px.line(tendencia, x="id_periodo", y="score", markers=True)
 
-ranking = df_filtrado.groupby('id_estudiante')['score'].sum().sort_values(ascending=False)
-top = ranking.head(int(len(ranking)*0.2))
-
-if len(ranking) > 0:
-    porcentaje = top.sum() / ranking.sum()
-    st.metric("Concentración", f"{round(porcentaje*100,2)}%")
-
-st.bar_chart(ranking.head(10))
+st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
-# TABLA EXPLORABLE
+# TOP
 # -----------------------
-st.subheader("🔍 Explora los datos")
+st.subheader("🏆 Top estudiantes")
 
-st.dataframe(df_filtrado, use_container_width=True)
+top = df_f.groupby('id_estudiante')['score'].sum().sort_values(ascending=False).head(10)
+
+fig = px.bar(
+    top.reset_index(),
+    x="id_estudiante",
+    y="score",
+    title="Top 10 Estudiantes"
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
-# INSIGHTS AUTOMÁTICOS
+# INSIGHTS
 # -----------------------
 st.subheader("🧠 Insights")
 
-if df_filtrado['tardanzas'].mean() > 5:
-    st.error("🚨 Problema serio de tardanzas")
-elif df_filtrado['tardanzas'].mean() > 3:
-    st.warning("⚠️ Nivel medio de tardanzas")
+if df_f['tardanzas'].mean() > 5:
+    st.error("🚨 Alto nivel de tardanzas")
+elif df_f['tardanzas'].mean() > 3:
+    st.warning("⚠️ Nivel medio")
 else:
-    st.success("✅ Buen comportamiento")
+    st.success("✅ Buen nivel de asistencia")
 
 # -----------------------
-# EXPORTAR
+# TABLA
 # -----------------------
-st.subheader("📥 Descargar datos filtrados")
+st.subheader("🔍 Explorar datos")
 
-csv = df_filtrado.to_csv(index=False)
-
-st.download_button(
-    "Descargar CSV",
-    csv,
-    "datos_filtrados.csv"
-)
+st.dataframe(df_f, use_container_width=True)
