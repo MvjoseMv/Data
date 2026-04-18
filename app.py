@@ -14,7 +14,7 @@ st.set_page_config(
 st.title("📊 Dashboard Ejecutivo de Asistencia")
 
 # -----------------------
-# DATA
+# CARGA DE DATOS
 # -----------------------
 @st.cache_data
 def cargar():
@@ -23,9 +23,9 @@ def cargar():
 df = cargar()
 
 # -----------------------
-# LIMPIEZA Y FEATURES
+# FEATURES
 # -----------------------
-df['score'] = df['tardanzas']*2 + df['retiros_tempranos']
+df['score'] = df['tardanzas'] * 2 + df['retiros_tempranos']
 df['id_estudiante'] = df['id_estudiante'].astype(str)
 
 def segmentar(score):
@@ -73,9 +73,6 @@ df_f = df_f[
     df_f['tardanzas'].between(rango_tardanzas[0], rango_tardanzas[1])
 ]
 
-# -----------------------
-# VALIDACIÓN
-# -----------------------
 if df_f.empty:
     st.warning("⚠️ No hay datos con los filtros seleccionados")
     st.stop()
@@ -95,7 +92,7 @@ col4.metric("Casos Críticos", len(df_f[df_f['segmento']=="Crítico"]))
 st.divider()
 
 # -----------------------
-# HISTOGRAMAS PRO
+# HISTOGRAMAS LIMPIOS
 # -----------------------
 col1, col2 = st.columns(2)
 
@@ -103,24 +100,19 @@ with col1:
     fig = px.histogram(
         df_f,
         x="tardanzas",
-        nbins=25,
-        marginal="box",
-        opacity=0.9,
-        color_discrete_sequence=["#4CAF50"]
+        nbins=20,
+        histnorm="probability density",
+        opacity=0.7
     )
 
-    fig.add_vline(
-        x=df_f["tardanzas"].mean(),
-        line_dash="dash",
-        line_color="red",
-        annotation_text="Promedio"
-    )
+    fig.update_traces(marker_color="#3b82f6")
 
     fig.update_layout(
         template="plotly_white",
         title="Distribución de Tardanzas",
         xaxis_title="Tardanzas",
-        yaxis_title="Frecuencia"
+        yaxis_title="Densidad",
+        bargap=0.08
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -129,24 +121,19 @@ with col2:
     fig = px.histogram(
         df_f,
         x="score",
-        nbins=25,
-        marginal="box",
-        opacity=0.9,
-        color_discrete_sequence=["#2196F3"]
+        nbins=20,
+        histnorm="probability density",
+        opacity=0.7
     )
 
-    fig.add_vline(
-        x=df_f["score"].mean(),
-        line_dash="dash",
-        line_color="red",
-        annotation_text="Promedio"
-    )
+    fig.update_traces(marker_color="#f59e0b")
 
     fig.update_layout(
         template="plotly_white",
         title="Distribución del Score",
         xaxis_title="Score",
-        yaxis_title="Frecuencia"
+        yaxis_title="Densidad",
+        bargap=0.08
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -154,7 +141,7 @@ with col2:
 # -----------------------
 # SCATTER
 # -----------------------
-st.subheader("🔗 Relación entre Variables")
+st.subheader("🔗 Relación entre variables")
 
 fig = px.scatter(
     df_f,
@@ -185,7 +172,7 @@ st.plotly_chart(fig, use_container_width=True)
 # -----------------------
 # TENDENCIA
 # -----------------------
-st.subheader("📈 Tendencia")
+st.subheader("📈 Tendencia por periodo")
 
 tend = df.groupby('id_periodo')['score'].mean().reset_index()
 
