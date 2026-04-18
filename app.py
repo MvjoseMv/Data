@@ -8,7 +8,7 @@ import plotly.express as px
 st.set_page_config(
     page_title="Dashboard Ejecutivo",
     layout="wide",
-    initial_sidebar_state="expanded"  # 👈 sidebar visible
+    initial_sidebar_state="expanded"
 )
 
 st.title("📊 Dashboard Ejecutivo de Asistencia")
@@ -23,7 +23,7 @@ def cargar():
 df = cargar()
 
 # -----------------------
-# LIMPIEZA (IMPORTANTE)
+# LIMPIEZA Y FEATURES
 # -----------------------
 df['score'] = df['tardanzas']*2 + df['retiros_tempranos']
 df['id_estudiante'] = df['id_estudiante'].astype(str)
@@ -39,7 +39,7 @@ def segmentar(score):
 df['segmento'] = df['score'].apply(segmentar)
 
 # -----------------------
-# SIDEBAR
+# SIDEBAR FILTROS
 # -----------------------
 st.sidebar.title("🎛️ Filtros")
 
@@ -55,7 +55,7 @@ estudiantes = st.sidebar.multiselect(
 )
 
 rango_tardanzas = st.sidebar.slider(
-    "Rango tardanzas",
+    "Rango de tardanzas",
     int(df['tardanzas'].min()),
     int(df['tardanzas'].max()),
     (int(df['tardanzas'].min()), int(df['tardanzas'].max()))
@@ -83,7 +83,7 @@ if df_f.empty:
 # -----------------------
 # KPIs
 # -----------------------
-st.subheader("📌 Indicadores")
+st.subheader("📌 Indicadores Clave")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -95,26 +95,66 @@ col4.metric("Casos Críticos", len(df_f[df_f['segmento']=="Crítico"]))
 st.divider()
 
 # -----------------------
-# HISTOGRAMAS (CLAROS)
+# HISTOGRAMAS PRO
 # -----------------------
 col1, col2 = st.columns(2)
 
 with col1:
-    fig = px.histogram(df_f, x="tardanzas", nbins=20,
-                       title="Distribución de Tardanzas")
-    fig.update_layout(template="plotly_white")
+    fig = px.histogram(
+        df_f,
+        x="tardanzas",
+        nbins=25,
+        marginal="box",
+        opacity=0.9,
+        color_discrete_sequence=["#4CAF50"]
+    )
+
+    fig.add_vline(
+        x=df_f["tardanzas"].mean(),
+        line_dash="dash",
+        line_color="red",
+        annotation_text="Promedio"
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        title="Distribución de Tardanzas",
+        xaxis_title="Tardanzas",
+        yaxis_title="Frecuencia"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:
-    fig = px.histogram(df_f, x="score", nbins=20,
-                       title="Distribución del Score")
-    fig.update_layout(template="plotly_white")
+    fig = px.histogram(
+        df_f,
+        x="score",
+        nbins=25,
+        marginal="box",
+        opacity=0.9,
+        color_discrete_sequence=["#2196F3"]
+    )
+
+    fig.add_vline(
+        x=df_f["score"].mean(),
+        line_dash="dash",
+        line_color="red",
+        annotation_text="Promedio"
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        title="Distribución del Score",
+        xaxis_title="Score",
+        yaxis_title="Frecuencia"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
 # SCATTER
 # -----------------------
-st.subheader("🔗 Relación")
+st.subheader("🔗 Relación entre Variables")
 
 fig = px.scatter(
     df_f,
@@ -123,6 +163,7 @@ fig = px.scatter(
     color="segmento",
     hover_data=["id_estudiante"]
 )
+
 fig.update_layout(template="plotly_white")
 
 st.plotly_chart(fig, use_container_width=True)
@@ -136,6 +177,7 @@ seg = df_f['segmento'].value_counts().reset_index()
 seg.columns = ['segmento', 'cantidad']
 
 fig = px.bar(seg, x="segmento", y="cantidad", color="segmento")
+
 fig.update_layout(template="plotly_white")
 
 st.plotly_chart(fig, use_container_width=True)
@@ -148,12 +190,13 @@ st.subheader("📈 Tendencia")
 tend = df.groupby('id_periodo')['score'].mean().reset_index()
 
 fig = px.line(tend, x="id_periodo", y="score", markers=True)
+
 fig.update_layout(template="plotly_white")
 
 st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
-# TOP ESTUDIANTES (FIX TOTAL)
+# TOP ESTUDIANTES
 # -----------------------
 st.subheader("🏆 Top 10 Estudiantes")
 
@@ -163,23 +206,21 @@ top = df_f.groupby('id_estudiante')['score'] \
     .head(10) \
     .reset_index()
 
-if not top.empty:
-    fig = px.bar(
-        top,
-        x="score",
-        y="id_estudiante",
-        orientation="h",
-        color="score",
-        title="Top Estudiantes",
-        color_continuous_scale="Blues"
-    )
-    fig.update_layout(
-        template="plotly_white",
-        yaxis=dict(autorange="reversed")
-    )
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.info("No hay datos para mostrar en Top estudiantes")
+fig = px.bar(
+    top,
+    x="score",
+    y="id_estudiante",
+    orientation="h",
+    color="score",
+    color_continuous_scale="Blues"
+)
+
+fig.update_layout(
+    template="plotly_white",
+    yaxis=dict(autorange="reversed")
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
 # INSIGHTS
@@ -187,16 +228,16 @@ else:
 st.subheader("🧠 Insights")
 
 if df_f['tardanzas'].mean() > 5:
-    st.error("🚨 Alto nivel de tardanzas")
+    st.error("🚨 Alto nivel de tardanzas detectado")
 elif df_f['tardanzas'].mean() > 3:
-    st.warning("⚠️ Nivel medio")
+    st.warning("⚠️ Nivel medio de tardanzas")
 else:
-    st.success("✅ Buen nivel")
+    st.success("✅ Buen nivel de asistencia")
 
 # -----------------------
 # TABLA
 # -----------------------
-st.subheader("🔍 Datos")
+st.subheader("🔍 Exploración de datos")
 
 st.dataframe(df_f, use_container_width=True)
 
@@ -205,4 +246,4 @@ st.dataframe(df_f, use_container_width=True)
 # -----------------------
 csv = df_f.to_csv(index=False)
 
-st.download_button("📥 Descargar CSV", csv, "datos.csv")
+st.download_button("📥 Descargar CSV", csv, "datos_filtrados.csv")
